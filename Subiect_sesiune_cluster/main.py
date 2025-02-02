@@ -1,9 +1,9 @@
 import pandas as pd
 import numpy as np
+from sklearn.preprocessing import StandardScaler
 from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
-from sklearn.metrics import silhouette_score
+from sklearn.metrics import silhouette_score, silhouette_samples
 import matplotlib.pyplot as plt
-
 def cerinta1(date:pd.DataFrame):
     summed_cols = ['2000', '2005', '2010', '2015', '2018']
     mediile = date.apply(func=lambda x: x[summed_cols].mean(), axis=1)
@@ -19,58 +19,66 @@ def cerinta2(date:pd.DataFrame):
     cer2 = pd.concat([aux['Continent'], years], axis=1)
     cer2.to_csv('dataOUT/cerinta2.csv', index=False)
 
-def cluster_Ward(data:pd.DataFrame):
-    data = data.fillna(0)
-    linkage_data = linkage(data, method='ward')
-    columns = ['Cluster1', 'Cluster2', 'Distance', 'No. clusters']
-    df = pd.DataFrame(linkage_data, columns=columns)
-    print (df)
-    return linkage_data
+def clean_data(data:pd.DataFrame):
+    if data.isna().any().any():
+        for col in data.columns:
+            if data[col].isna().any():
+                data[col] = data[col].fillna(data[col].mean())
+    return data
 
-def partitia_optimala_dendograma(linkage_data, original_data, alcohol):
-    best_score = 0;
-    no_clusters_maxim = 10;
-    no_clusters_optim = -1
+def cluster_analysys(alcohol:pd.DataFrame):
+    numeric_data = alcohol.iloc[:,2:]
+    cleaned_data = clean_data(numeric_data)
+
+    # Standartizam datele
+    scaler = StandardScaler()
+    normalized_data = scaler.fit_transform(cleaned_data)
+
+    # Matricea de irearhie
+    linkage_matrix = linkage(normalized_data, method='ward')
+    columns_linkage = ['Cluster1', 'Cluster2', 'Distances', 'No. Clusters']
+    df_linkage = pd.DataFrame(linkage_matrix, columns=columns_linkage)
+    df_linkage.to_csv('dataOUT/matricea_ierarhie.csv')
+
+    #Nr optim cluster, metoda elbow
+    # distances = linkage_matrix[:, 2]
+    # values = linkage_matrix[:, 3]
+    # dif  = np.diff(distances, 2)
+    # index_max = np.argmax(dif) + 1
+    # value = values[index_max]
+    # print('Nr optim de cluster dupa metoda elbow: ', index_max)
+
+    # Nr optim cluster, silouhette score
+    nr_cluster_optim = 0
+    best_score = 0
     scores = []
 
-    for nr in range(2,no_clusters_maxim+1):
-        labels = fcluster(linkage_data, nr, 'maxclust')
-        silhouette = silhouette_score(original_data, labels)
-        scores.append(silhouette)
-        if silhouette > best_score:
-            best_score = silhouette
-            no_clusters_optim = nr
+    for nr in range(2,10):
+        labels = fcluster(linkage_matrix, nr, criterion='maxclust')
+        score = silhouette_score(normalized_data, labels)
+        if score > best_score:
+            best_score = score
+            nr_cluster_optim = nr
+        scores.append(score)
+    print("Best silohette score: ", best_score)
+    print("Numar optim de clustere: ", nr_cluster_optim)
 
-    print('Best silhouette score:', best_score)
-    print('No. clusters optim:', no_clusters_optim)
-
-
-    plt.figure( figsize = (10,7))
-    dendrogram(linkage_data, labels= alcohol.index)
-    plt.title("Dendrograma")
-    plt.xlabel('Tarile')
-    plt.ylabel('Distanta')
-    plt.grid(True)
+    plt.plot([i for i in range(2,10)], scores)
+    plt.xlabel('Nr clustere')
+    plt.ylabel('Scores')
     plt.show()
 
-def componenta_partitiei_optimala(linkage_matrix, alcohol_data):
-    labels = fcluster(linkage_matrix, 2, 'maxclust')
-    series_labels = pd.Series(labels, name='Cluster ID')
-    df = pd.concat((alcohol_data, series_labels), axis=1)
-    df.to_csv('dataOUT/partiti_optime.csv')
+    dendrogram(linkage_matrix, no_labels=nr_cluster_optim)
+    plt.show()
 
-
-
-
+    # partitia optima
+    labels_optim = fcluster(linkage_matrix, nr_cluster_optim, criterion='maxclust')
+    alcohol['Clust ID'] = labels_optim
+    print(alcohol)
 
 
 alcohol = pd.read_csv('DateIN/alcohol.csv')
 alcohol_countryindex =pd.read_csv('DateIN/alcohol.csv', index_col=0)
 contintente = pd.read_csv('DateIN/CoduriTariExtins.csv')
 merged_data = alcohol.merge(contintente, left_on='Entity', right_on='Tari', how='inner')
-data_for_Ward = alcohol.iloc[:,2:]
-data_for_Ward.to_csv('dataOUT/dataWard.csv', index=False)
-linkage_matrix = cluster_Ward(data_for_Ward)
-data = data_for_Ward.fillna(0)
-# componenta_partitiei_optimala(linkage_matrix, alcohol)
-partitia_optimala_dendograma(linkage_matrix,data, alcohol_countryindex)
+cluster_analysys(alcohol)

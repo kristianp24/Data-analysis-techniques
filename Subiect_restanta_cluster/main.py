@@ -1,7 +1,11 @@
-import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
-from sklearn.metrics import silhouette_score
-from scipy.cluster.hierarchy import fcluster, dendrogram, linkage
+import seaborn as sb
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import StandardScaler
+from sklearn.metrics import silhouette_score, silhouette_samples
+from scipy.cluster.hierarchy import linkage, dendrogram, fcluster
+from kneed import KneeLocator
 
 
 def cerinta1(indicatori:pd.DataFrame):
@@ -25,40 +29,70 @@ def cerinta2(indicatori:pd.DataFrame, populatie:pd.DataFrame):
     print(aux)
 
 
-def linkage_matrix(date:pd.DataFrame):
-    date = date.fillna(0)
-    linkage_matrix = linkage(date, method='ward')
-    columns = ['Cluster1', 'Cluster2', 'Distanta', 'No.clusters']
-    df = pd.DataFrame(linkage_matrix, columns=columns)
-    print(df)
-    return linkage_matrix
+def clean_data(data:pd.DataFrame):
+    if data.isna().any().any():
+        for col in data.columns:
+            if data[col].isna().any():
+                data[col] = data[col].fillna(data[col].mean())
 
-def partitia_optimala(linkage_data, date_original:pd.DataFrame, indexi):
-    # gasim nr optimal de clusteri prin silouhette score
-    best_score = 0
-    nr_cluster_optim = 1
-    scores = []
-    for nr in range(2,10):
-        labels = fcluster(linkage_data, nr, 'maxclust')
-        score = silhouette_score(date_original, labels=labels)
-        scores.append(score)
-        if (score > best_score):
-            best_score = score
-            nr_cluster_optim = nr
+    return data
 
-    print('Best silouhette score:', score)
-    print('Nr optim de cluster:', nr_cluster_optim)
+def cluster_analysys(locationaQ:pd.DataFrame):
+    numeric_data = locationaQ.iloc[:,1:]
+    cleaned_data = clean_data(numeric_data)
 
-    plt.figure(figsize=(10,7))
-    dendrogram(linkage_data, labels=indexi)
+    # Standartizam data
+    scaler = StandardScaler()
+    normalized_data = scaler.fit_transform(cleaned_data)
+
+    # Matricea de ierarhie
+    matrix_I = linkage(normalized_data, method='ward')
+    columns = ['Cluster1', 'Cluster2', 'Distanta', 'Nr.clustere']
+    df_matrice_ierarhie = pd.DataFrame(matrix_I, columns=columns)
+    print(df_matrice_ierarhie)
+
+    # Dendrograma
+    dendrogram(matrix_I)
     plt.show()
 
-def componenta_partitiei_optime(data_original:pd.DataFrame, linkage_matrix):
-    labels = fcluster(linkage_matrix, 3, 'maxclust')
-    labels1 = pd.Series(labels, name='Cluster ID')
-    df = pd.concat([data_original, labels1], axis=1)
-    df.to_csv('dataOUT/popt.csv', index=False)
+    # Elbow method pentru partitia optimala
+    distances = matrix_I[:, 2]
+    diff = np.diff(distances, 2)
+    elbow_index = np.argmax(diff) + 1
+    values = matrix_I[:, 3]
+    elbow_value = values[elbow_index]
+    print('Numarul optim de clusteri dupa punctul elbow: ', elbow_value)
 
+    # Silouhette score la nivel de partitie
+    nr_cluster_optim = 1
+    best_score = 0
+    scores = []
+
+    for nr in range(2,10):
+        labels = fcluster(matrix_I, nr, criterion='maxclust')
+        score = silhouette_score(normalized_data, labels)
+        if score > best_score:
+            best_score = score
+            nr_cluster_optim  = nr
+        scores.append(score)
+    print('Cel mai bun scor: ', best_score)
+    print('Nr de clustere: ', nr_cluster_optim)
+
+    # Ploturi
+    plt.plot([i for i in range(2,10)], scores)
+    plt.xlabel('Nr clusters')
+    plt.ylabel('Silouhette score')
+    plt.show()
+
+    # Numarul optim de clustere = 3
+    # Partitia optima
+    labels_optim = fcluster(matrix_I, nr_cluster_optim, criterion='maxclust')
+    locationaQ['ClusterID'] = labels_optim
+    print(locationaQ)
+
+    #Silouhette score la nivel de instanta
+    silh_score_instanta = silhouette_samples(normalized_data, labels_optim)
+    print(silh_score_instanta)
 
 
 indicatori = pd.read_csv('dataIN/Indicatori.csv')
@@ -70,6 +104,6 @@ print(date_cluster)
 # # print([locationaQ['Judet']])
 # partitia_optimala(linkage_data, date_cluster, locationaQ['Judet'].tolist())
 # componenta_partitiei_optime(locationaQ, linkage_data)
-cerinta2(indicatori, populatie)
+cluster_analysys(locationaQ)
 
 
