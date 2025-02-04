@@ -33,6 +33,7 @@ def canonical_analysys():
 
     # Correlatii
     corr_X = np.corrcoef(X.T, scoruri_X.T)[:len(set1_columns), len(set1_columns):]
+
     corr_Y = np.corrcoef(Y.T, sroruri_Y.T)[:len(set2_columns), len(set2_columns):]
     print("Corr X: ")
     print(corr_X)
