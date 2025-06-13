@@ -1,9 +1,14 @@
 # 📚 Data Analysis Techniques
 
+![Python](https://img.shields.io/badge/Python-3.10-blue?logo=python&logoColor=white)
+![NumPy](https://img.shields.io/badge/NumPy-1.24-013243?logo=numpy&logoColor=white)
+![Pandas](https://img.shields.io/badge/Pandas-1.5.3-150458?logo=pandas&logoColor=white)
+![scikit-learn](https://img.shields.io/badge/scikit--learn-1.2.2-F7931E?logo=scikitlearn&logoColor=white)
+ ---
+
 > 🧠 A Python-powered journey through data analysis labs & exercises, using NumPy, Pandas, scikit-learn, Seaborn, and Matplotlib!
 
 This repository contains all my practical work from the *Software Development for Data Analysis* (DSAD) course: clean code, statistical insights, visual storytelling, and hands-on modeling!
-![Python](https://img.shields.io/badge/Python-3.10-blue?logo=python)
 
 ---
 
